@@ -1,0 +1,55 @@
+import sqlite3
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+import joblib
+import matplotlib.pyplot as plt
+from pathlib import Path
+
+DB = Path(__file__).parent.parent / "db" / "sensors.db"
+OUT = Path(__file__).parent
+
+def load_features():
+    conn = sqlite3.connect(DB)
+    df = pd.read_sql_query("SELECT * FROM sensor_feature_snapshots", conn, parse_dates=['snapshot_ts'])
+    conn.close()
+    return df
+
+def main():
+    df = load_features()
+    # drop rows with nulls
+    df = df.dropna(subset=['temp_c','pressure_bar','vibration_rms','humidity_pct','current_a'])
+    features = ['temp_c','pressure_bar','vibration_rms','humidity_pct','current_a','equipment_id','location_id']
+    X = df[features]
+    y = df['is_anomaly'].astype(int)
+
+    if len(df) < 50:
+        print("Poucos dados em sensor_feature_snapshots; ajuste: carregue CSV ou gere simulação.")
+        return
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42, stratify=y)
+
+    model = RandomForestClassifier(n_estimators=200, random_state=42)
+    model.fit(X_train, y_train)
+
+    y_pred = model.predict(X_test)
+    acc = accuracy_score(y_test, y_pred)
+    print("Accuracy:", acc)
+    print(classification_report(y_test, y_pred, digits=4))
+
+    joblib.dump(model, OUT / "model.pkl")
+    cm = confusion_matrix(y_test, y_pred)
+    fig, ax = plt.subplots(figsize=(5,5))
+    ax.imshow(cm, interpolation='nearest')
+    ax.set_xticks([0,1]); ax.set_yticks([0,1])
+    ax.set_xticklabels(['Normal','Anomaly']); ax.set_yticklabels(['Normal','Anomaly'])
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            ax.text(j,i,cm[i,j],ha='center',va='center')
+    plt.title("Confusion Matrix")
+    plt.savefig(OUT / "confusion_matrix.png", dpi=150)
+    plt.show()
+
+if __name__=='__main__':
+    main()
