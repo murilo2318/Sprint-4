@@ -1,0 +1,75 @@
+from flask import Flask, request, jsonify
+import sqlite3
+from datetime import datetime
+import os
+
+DB_PATH = os.path.join(os.path.dirname(__file__), "..", "db", "sensors.db")
+SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "..", "db", "schema.sql")
+
+app = Flask(__name__)
+
+def init_db():
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+    if not os.path.exists(DB_PATH):
+        conn = sqlite3.connect(DB_PATH)
+        with open(SCHEMA_PATH, 'r', encoding='utf-8') as f:
+            conn.executescript(f.read())
+        conn.commit()
+        conn.close()
+        print("DB criado e schema aplicado em", DB_PATH)
+    else:
+        print("DB já existe em", DB_PATH)
+
+def insert_reading(conn, sensor_id, ts, value, status="OK"):
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO sensor_readings(reading_ts, sensor_id, reading_value, status_flag)
+        VALUES (?, ?, ?, ?)
+    """, (ts, sensor_id, value, status))
+    return cur.lastrowid
+
+# mapping sensor_type -> sensor_id (seed default)
+SENSOR_MAP = {
+    "temp_c": 1,
+    "pressure_bar": 2,
+    "vibration_rms": 3,
+    "humidity_pct": 4,
+    "current_a": 5
+}
+
+@app.route('/ingest', methods=['POST'])
+def ingest():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error":"no json"}), 400
+
+    equipment_id = data.get("equipment_id")
+    ts_raw = data.get("timestamp")
+    try:
+        # try to parse; if numeric millis, convert
+        if ts_raw.isdigit():
+            ts = datetime.utcnow().isoformat(timespec='seconds')
+        else:
+            ts = ts_raw
+    except Exception:
+        ts = datetime.utcnow().isoformat(timespec='seconds')
+
+    readings = data.get("readings", [])
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        for r in readings:
+            stype = r.get("sensor_type")
+            value = float(r.get("value"))
+            sensor_id = SENSOR_MAP.get(stype)
+            if sensor_id is None:
+                continue
+            insert_reading(conn, sensor_id, ts, value)
+        conn.commit()
+    finally:
+        conn.close()
+
+    return jsonify({"status":"ok", "ingested": len(readings)}), 201
+
+if __name__ == '__main__':
+    init_db()
+    app.run(host='0.0.0.0', port=5000, debug=True)
