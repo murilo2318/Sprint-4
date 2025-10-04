@@ -1,0 +1,43 @@
+Projeto FarmTech Solutions - Fase Final
+
+Este projeto integra sensoriamento inteligente, banco de dados e machine learning para monitorar dados agrícolas em tempo real, detectar anomalias e fornecer visualizações úteis para a tomada de decisão no campo.
+
+⸻
+
+Estrutura do Repositório
+	•	data/ → Contém o dataset de sensores (sensor_readings.csv).
+	•	sql/ → Scripts de criação de tabelas e inserção de dados (schema.sql).
+	•	ml/ → Scripts e modelos de Machine Learning (train_ml_model.py, random_forest_anomaly.pkl).
+	•	dashboard/ → Front-end para visualização (HTML, CSS, JS).
+	•	der/ → Modelo de dados (arquivo .dmd e exportação em imagem .png).
+	•	docs/ → Documentação e vídeo explicativo.
+
+⸻
+
+Banco de Dados
+	•	Modelagem feita via DER (entregue em .dmd e .png).
+	•	Scripts SQL disponíveis em sql/schema.sql.
+
+Como executar:
+mysql -u usuario -p < sql/schema.sql
+
+Dataset
+	•	Arquivo: data/sensor_readings.csv
+	•	Contém 6000 registros simulados de sensores com as seguintes variáveis:
+	•	Temperatura
+	•	Umidade
+	•	pH
+	•	NPK (Nitrogênio, Fósforo, Potássio)
+	•	Indicador de anomalia
+
+⸻
+
+Machine Learning
+
+Pipeline implementado em Python com Random Forest Classifier para detectar anomalias.
+	•	Script: ml/train_ml_model.py
+	•	Modelo salvo em: ml/random_forest_anomaly.pkl
+	•	Avaliação: matriz de confusão e métricas (accuracy, precisão, recall).
+
+Como executar:
+python ml/train_ml_model.pypython ml/train_ml_model.py
