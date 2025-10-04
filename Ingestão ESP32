@@ -1,0 +1,80 @@
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+
+const char* ssid = "YOUR_SSID";
+const char* password = "YOUR_PASS";
+const char* serverUrl = "http://<PC_IP_OR_127.0.0.1>:5000/ingest"; // ajustar para IP do servidor
+
+unsigned long lastTime = 0;
+const unsigned long interval = 5000; // 5s entre leituras
+
+void setup() {
+  Serial.begin(115200);
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println();
+  Serial.println("Connected.");
+}
+
+float randomSensor(float mean, float stddev) {
+  // Box-Muller
+  float u1 = random(1, 10000) / 10000.0;
+  float u2 = random(1, 10000) / 10000.0;
+  float z0 = sqrt(-2.0 * log(u1)) * cos(2*PI*u2);
+  return mean + z0 * stddev;
+}
+
+void loop() {
+  if (millis() - lastTime > interval) {
+    lastTime = millis();
+
+    // Simular leituras
+    float temp = randomSensor(65.0, 3.5);
+    float pressure = randomSensor(12.0, 1.0);
+    float vibration = randomSensor(1.2, 0.2);
+    float humidity = randomSensor(45.0, 6.0);
+    float currentA = randomSensor(15.0, 1.5);
+    String ts = String(millis()); // para demo, usar millis; em produção enviar timestamp ISO
+
+    // Montar JSON com múltiplos sensores (ou enviar por sensor)
+    StaticJsonDocument<512> doc;
+    doc["timestamp"] = ts;
+    doc["equipment_id"] = 101;
+    JsonArray sensors = doc.createNestedArray("readings");
+
+    JsonObject r1 = sensors.createNestedObject();
+    r1["sensor_type"] = "temp_c"; r1["value"] = temp;
+    JsonObject r2 = sensors.createNestedObject();
+    r2["sensor_type"] = "pressure_bar"; r2["value"] = pressure;
+    JsonObject r3 = sensors.createNestedObject();
+    r3["sensor_type"] = "vibration_rms"; r3["value"] = vibration;
+    JsonObject r4 = sensors.createNestedObject();
+    r4["sensor_type"] = "humidity_pct"; r4["value"] = humidity;
+    JsonObject r5 = sensors.createNestedObject();
+    r5["sensor_type"] = "current_a"; r5["value"] = currentA;
+
+    String body;
+    serializeJson(doc, body);
+
+    if (WiFi.status() == WL_CONNECTED) {
+      HTTPClient http;
+      http.begin(serverUrl);
+      http.addHeader("Content-Type", "application/json");
+      int httpResponseCode = http.POST(body);
+      if (httpResponseCode > 0) {
+        String response = http.getString();
+        Serial.println("POST OK: " + String(httpResponseCode) + " " + response);
+      } else {
+        Serial.println("Error on sending POST: " + String(httpResponseCode));
+      }
+      http.end();
+    } else {
+      Serial.println("WiFi not connected");
+    }
+  }
+}
