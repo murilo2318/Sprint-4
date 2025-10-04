@@ -1,0 +1,61 @@
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE IF NOT EXISTS locations (
+    location_id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    area TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS equipment (
+    equipment_id INTEGER PRIMARY KEY,
+    location_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    model TEXT,
+    installed_at TEXT,
+    FOREIGN KEY(location_id) REFERENCES locations(location_id)
+);
+
+CREATE TABLE IF NOT EXISTS sensors (
+    sensor_id INTEGER PRIMARY KEY,
+    equipment_id INTEGER NOT NULL,
+    sensor_type TEXT NOT NULL,
+    unit TEXT NOT NULL,
+    min_valid REAL,
+    max_valid REAL,
+    FOREIGN KEY(equipment_id) REFERENCES equipment(equipment_id)
+);
+
+CREATE TABLE IF NOT EXISTS sensor_readings (
+    reading_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sensor_id INTEGER NOT NULL,
+    reading_ts TEXT NOT NULL,
+    reading_value REAL NOT NULL,
+    status_flag TEXT,
+    FOREIGN KEY(sensor_id) REFERENCES sensors(sensor_id)
+);
+
+CREATE TABLE IF NOT EXISTS sensor_feature_snapshots (
+    snapshot_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    equipment_id INTEGER NOT NULL,
+    location_id INTEGER NOT NULL,
+    snapshot_ts TEXT NOT NULL,
+    temp_c REAL,
+    pressure_bar REAL,
+    vibration_rms REAL,
+    humidity_pct REAL,
+    current_a REAL,
+    is_anomaly INTEGER DEFAULT 0,
+    FOREIGN KEY(equipment_id) REFERENCES equipment(equipment_id),
+    FOREIGN KEY(location_id) REFERENCES locations(location_id)
+);
+
+-- Seed minimal
+INSERT OR IGNORE INTO locations(location_id, name, area) VALUES (1,'Planta A','Setor 1');
+INSERT OR IGNORE INTO equipment(equipment_id, location_id, name, model) VALUES (101,1,'Prensa A','PH-500');
+INSERT OR IGNORE INTO sensors(sensor_id, equipment_id, sensor_type, unit) VALUES
+ (1,101,'temp_c','C'),
+ (2,101,'pressure_bar','bar'),
+ (3,101,'vibration_rms','gRMS'),
+ (4,101,'humidity_pct','%'),
+ (5,101,'current_a','A');
