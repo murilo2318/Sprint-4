@@ -1,0 +1,25 @@
+import pandas as pd
+import sqlite3
+from pathlib import Path
+
+CSV = Path(__file__).parent.parent / "data" / "leituras_sensores.csv"
+DB = Path(__file__).parent / "sensors.db"
+
+df = pd.read_csv(CSV, parse_dates=['timestamp'])
+conn = sqlite3.connect(DB)
+
+# Supondo que CSV tem colunas: timestamp, location_id, equipment_id, temp_c, pressure_bar, vibration_rms, humidity_pct, current_a, is_anomaly
+for _, row in df.iterrows():
+    ts = row['timestamp']
+    # Inserir em sensor_feature_snapshots (snapshot wide table)
+    conn.execute("""
+        INSERT INTO sensor_feature_snapshots(
+            equipment_id, location_id, snapshot_ts,
+            temp_c, pressure_bar, vibration_rms, humidity_pct, current_a, is_anomaly
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (int(row['equipment_id']), int(row['location_id']), ts,
+          float(row['temp_c']), float(row['pressure_bar']), float(row['vibration_rms']),
+          float(row['humidity_pct']), float(row['current_a']), int(row.get('is_anomaly', 0))))
+conn.commit()
+conn.close()
+print("CSV carregado em sensor_feature_snapshots")
